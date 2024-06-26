@@ -14,7 +14,7 @@ _pos_dim_ = _dim_//2
 _ffn_dim_ = _dim_*2
 _num_levels_ = 1
 
-_labels_tag_ = 'labels'
+_labels_tag_ = 'labels_voxformer'
 _num_cams_ = 5
 _temporal_ = [-12,-9,-6,-3]
 point_cloud_range = [0, -25.6, -2.0, 51.2, 25.6, 4.4]
@@ -28,7 +28,7 @@ _query_tag_ = 'query_iou5203_pre7712_rec6153'
 
 model = dict(
    type='VoxFormer',
-   pretrained=dict(img='ckpts/resnet50-19c8e357.pth'),
+   pretrained=dict(img='VoxFormer/ckpts/resnet50-19c8e357.pth'),
    img_backbone=dict(
        type='ResNet',
        depth=50,
@@ -139,12 +139,12 @@ model = dict(
 
 
 dataset_type = 'SemanticKittiDatasetStage2'
-data_root = './kitti/'
+data_root = 'data/'
 file_client_args = dict(backend='disk')
 
 data = dict(
    samples_per_gpu=1,
-   workers_per_gpu=4,
+   workers_per_gpu=0,
    train=dict(
        type=dataset_type,
        split = "train",
@@ -204,7 +204,12 @@ log_config = dict(
    interval=50,
    hooks=[
        dict(type='TextLoggerHook'),
-       dict(type='TensorboardLoggerHook')
+       # dict(type='TensorboardLoggerHook')
+       dict(type='WandbLoggerHook',
+       init_kwargs={
+           'project':'VoxFormer',
+           'entity':'minji11'
+       })
    ])
 
 checkpoint_config = None
