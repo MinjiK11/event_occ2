@@ -12,7 +12,6 @@ from mmcv.runner import EvalHook as BaseEvalHook
 from torch.nn.modules.batchnorm import _BatchNorm
 from mmdet.core.evaluation.eval_hooks import DistEvalHook
 
-
 def _calc_dynamic_intervals(start_interval, dynamic_interval_list):
     assert mmcv.is_list_of(dynamic_interval_list, tuple)
 
@@ -24,6 +23,19 @@ def _calc_dynamic_intervals(start_interval, dynamic_interval_list):
         [dynamic_interval[1] for dynamic_interval in dynamic_interval_list])
     return dynamic_milestones, dynamic_intervals
 
+class EvalHook(BaseEvalHook):
+
+    def _do_evaluate(self, runner):
+        """perform evaluation and save ckpt."""
+        if not self._should_evaluate(runner):
+            return
+
+        from projects.mmdet3d_plugin.voxformer.apis.test import custom_single_gpu_test
+        results = custom_single_gpu_test(runner.model, self.dataloader, show=False)
+        runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
+        key_score = self.evaluate(runner, results)
+        if self.save_best:
+            self._save_ckpt(runner, key_score)
 
 class CustomDistEvalHook(BaseDistEvalHook):
 
