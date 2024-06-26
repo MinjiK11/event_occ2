@@ -10,6 +10,7 @@ import argparse
 import copy
 import mmcv
 import os
+import sys
 import time
 import torch
 import warnings
@@ -17,6 +18,7 @@ from mmcv import Config, DictAction
 from mmcv.runner import get_dist_info, init_dist
 from os import path as osp
 
+sys.path.append('/share/VoxFormer/mmdetection3d')
 from mmdet import __version__ as mmdet_version
 from mmdet3d import __version__ as mmdet3d_version
 #from mmdet3d.apis import train_model
@@ -33,6 +35,7 @@ from mmcv.utils import TORCH_VERSION, digit_version
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
     parser.add_argument('config', help='train config file path')
+    #parser.add_argument('--config', help='train config file path', default='VoxFormer/projects/configs/voxformer/voxformer-S.py')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
@@ -109,6 +112,9 @@ def main():
     if cfg.get('custom_imports', None):
         from mmcv.utils import import_modules_from_strings
         import_modules_from_strings(**cfg['custom_imports'])
+
+    sys.path.append('/share/VoxFormer')
+    sys.path.append('/share/VoxFormer/projects/mmdet3d_plugin')
 
     # import modules from plguin/xx, registry will be updated
     if hasattr(cfg, 'plugin'):

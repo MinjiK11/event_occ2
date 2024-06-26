@@ -15,8 +15,9 @@ import sys
 
 # sys.path.append("/root/autodl-tmp/vox/mmcv-main/cntest/build/lib.linux-x86_64-cpython-38/")
 # sys.path.append("/home/yml/bevformer/mmdetection3d/deform_3d_cuda/")
-raise NotImplementedError("Use sys.path.append here to modify the path to your .so file")
-sys.path.append("/path/to/directory_containing_so_file")
+#raise NotImplementedError("Use sys.path.append here to modify the path to your .so file")
+sys.path.append("/share/VoxFormer/deform_attn_3d/deform3dattn_custom_cn.cpython-37m-x86_64-linux-gnu.so")
+sys.path.append("/share/VoxFormer/deform_attn_3d/build/lib.linux-x86_64-3.7")
 
 
 

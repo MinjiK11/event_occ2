@@ -39,7 +39,8 @@ class SemanticKittiDatasetStage2(Dataset):
         super().__init__()
         
         self.data_root = data_root
-        self.label_root = os.path.join(preprocess_root, labels_tag)
+        #self.label_root = os.path.join(preprocess_root, labels_tag)
+        self.label_root=os.path.join(data_root,labels_tag)
         self.query_tag = query_tag
         self.nsweep=str(nsweep)
         self.depthmodel = depthmodel
