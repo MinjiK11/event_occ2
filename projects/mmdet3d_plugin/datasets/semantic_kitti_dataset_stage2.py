@@ -32,9 +32,11 @@ class SemanticKittiDatasetStage2(Dataset):
         eval_range = 51.2,
         depthmodel="msnet3d",
         nsweep=10,
-        labels_tag = 'labels',
+        labels_tag = 'labels_voxformer',
         query_tag = 'query_iou5203_pre7712_rec6153',
         color_jitter=None,
+        input_type="rgb",
+        norm_e=True
     ):
         super().__init__()
         
@@ -45,11 +47,17 @@ class SemanticKittiDatasetStage2(Dataset):
         self.nsweep=str(nsweep)
         self.depthmodel = depthmodel
         self.eval_range = eval_range
+        # splits = {
+        #     "train": ["00", "01", "02", "03", "04", "05", "06", "07", "09", "10"],
+        #     "val": ["08"],
+        #     "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
+        # }
         splits = {
-            "train": ["00", "01", "02", "03", "04", "05", "06", "07", "09", "10"],
-            "val": ["08"],
+            "train": ["04"],
+            "val": ["04"],
             "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
         }
+        
         self.split = split 
         self.sequences = splits[split]
         self.n_classes = 20
@@ -81,8 +89,9 @@ class SemanticKittiDatasetStage2(Dataset):
         )
         self.test_mode = test_mode
         self.set_group_flag()
+        self.input_type=input_type
+        self.norm_e=norm_e
         
-
     def __getitem__(self, index):
         
         return self.prepare_data(index)
@@ -249,8 +258,18 @@ class SemanticKittiDatasetStage2(Dataset):
         filename = os.path.basename(proposal_path)
         frame_id = os.path.splitext(filename)[0]
 
-        meta_dict = self.get_meta_info(scan, sequence, frame_id, proposal_path)
-        img = self.get_input_info(sequence, frame_id)
+        if self.input_type=="rgb":
+            meta_dict = self.get_meta_info(scan, sequence, frame_id, proposal_path)
+            img = self.get_input_info(sequence, frame_id)
+        elif self.input_type=="event":
+            event_id=frame_id.lstrip("0")
+            if frame_id=='000000':
+                event_id='1'
+            elif event_id==str(len(self.poses[sequence])-1):
+                event_id=str((len(self.poses[sequence]))-2)
+            meta_dict=self.get_meta_info(scan, sequence, frame_id, proposal_path)
+            img=self.get_input_info_event(sequence, frame_id, event_id)
+
         target = self.get_gt_info(sequence, frame_id)
 
         data_info = dict(
@@ -340,10 +359,72 @@ class SemanticKittiDatasetStage2(Dataset):
             lidar2img = lidar2img_rts,
             lidar2cam=lidar2cam_rts,
             cam_intrinsic=cam_intrinsics,
-            img_shape = [(self.img_H,self.img_W)]
+            img_shape = [(self.img_H,self.img_W)],
+            input_type=self.input_type
         )
 
         return meta_dict
+    
+    def get_input_info_event(self, sequence, frame_id, event_id):
+        
+        seq_len = len(self.poses[sequence])
+        event_list=[]
+
+        rgb_path = os.path.join(
+            self.data_root, "dataset", "sequences", sequence, "image_2", frame_id + ".png"
+        )
+        img = Image.open(rgb_path).convert("RGB")
+        # PIL to numpy
+        img = np.array(img, dtype=np.float32, copy=False) / 255.0
+        width=img.shape[1]
+        height=img.shape[0]
+
+        # Event data
+        event_path=os.path.join(self.data_root,"event",sequence,"image_2",event_id+".npy")
+
+        evs_stream=torch.zeros(0,4).float()
+
+        evs_stream=np.load(event_path)
+        evs_stream=torch.from_numpy(evs_stream).float()
+        evs_stream[:,0]=torch.from_numpy(self.fix_time(evs_stream[:,0].numpy()))
+
+        ev_ten = self.ev2grid(evs_stream, num_bins=3, width=width, height=height)
+
+        events=ev_ten[:,:self.img_H,:self.img_W]
+        
+        if self.norm_e:
+            events=self.norm(events)
+        
+        event_list.append(events)
+
+        # sequential input
+        for i in self.target_frames:
+            id=int(event_id)
+
+            if id+i<0 or id+i>seq_len-1:
+                target_id=event_id
+            else:
+                target_id=str(id+i)
+
+            event_path=os.path.join(self.data_root,"event",sequence,"image_2",target_id+".npy")
+            evs_stream=torch.zeros(0,4).float()
+
+            evs_stream=np.load(event_path)
+            evs_stream=torch.from_numpy(evs_stream).float()
+            evs_stream[:,0]=torch.from_numpy(self.fix_time(evs_stream[:,0].numpy()))
+
+            ev_ten=self.ev2grid(evs_stream,num_bins=3,width=width,height=height)
+
+            events=ev_ten[:,:self.img_H,:self.img_W]
+
+            if self.norm_e:
+                events=self.norm(events)
+
+            event_list.append(events)
+
+        event_tensor=torch.stack(event_list,dim=0)
+        
+        return event_tensor
 
     def get_input_info(self, sequence, frame_id):
         """Get the image of the specific frame in a sequence.
@@ -396,6 +477,89 @@ class SemanticKittiDatasetStage2(Dataset):
 
         return image_tensor
 
+    def fix_time(self, vect): ## vect : event의 시간들
+        ref = np.ones(len(vect) - 1)
+        y_hat = np.diff(vect) / ref ## y_hat : event간의 시간 차
+        starts = np.where(y_hat < 0)[0] # y_hat 배열에서 첫번째로 0보다 작은 원소를 갖는 인덱스
+        vect = np.asarray(vect)
+        for i in range(len(starts)):
+            vect[starts[i]+1:] += vect[starts[i]]
+        return vect
+    
+    def ev2grid(self, events, num_bins, width, height):
+        """
+        Build a voxel grid with bilinear interpolation in the time domain from a set of events.
+
+        :param events: a [N x 4] NumPy array containing one event per row in the form: [timestamp, x, y, polarity]
+        :param num_bins: number of bins in the temporal axis of the voxel grid
+        :param width, height: dimensions of the voxel grid
+        :param device: device to use to perform computations
+        :return voxel_grid: PyTorch event tensor (on the device specified)
+        """
+
+        assert (events.shape[1] == 4)
+        assert (num_bins > 0)
+        assert (width > 0)
+        assert (height > 0)
+
+        with torch.no_grad():
+
+            voxel_grid = torch.zeros(num_bins, height, width, dtype=torch.float32).flatten()
+
+            # normalize the event timestamps so that they lie between 0 and num_bins
+            last_stamp = events[-1, 0]
+            first_stamp = events[0, 0]
+            deltaT = last_stamp - first_stamp
+
+            if deltaT == 0:
+                deltaT = 1.0
+
+            events[:, 0] = (num_bins - 1) * (events[:, 0] - first_stamp) / deltaT
+
+            ts = events[:, 0]
+            xs = events[:, 1].long() # event가 발생한 pixel x 좌표
+            ys = events[:, 2].long() # event가 발생한 pixel y 좌표
+            pols = events[:, 3].float() # polarity
+            pols[pols == 0] = -1  # polarity should be +1 / -1
+
+            tis = torch.floor(ts) # 각 요소보다 작거나 같은 가장 큰 정수로 이루어진 텐서 반환 (각 event가 어느 channel에 속하는지; channel은 정수이므로)
+            tis_long = tis.long() 
+            dts = ts - tis 
+            vals_left = pols * (1.0 - dts.float())
+            vals_right = pols * dts.float()
+
+            # each event contributes its polarity value to its two closest temporal channel
+            valid_indices = tis < num_bins
+            valid_indices &= tis >= 0
+            voxel_grid.index_add_(dim=0,
+                                  index=xs[valid_indices] + ys[valid_indices]
+                                            * width + tis_long[valid_indices] * width * height,
+                                  source=vals_left[valid_indices])
+
+            valid_indices = (tis + 1) < num_bins
+            valid_indices &= tis >= 0
+
+            voxel_grid.index_add_(dim=0,
+                                  index=xs[valid_indices] + ys[valid_indices] * width
+                                            + (tis_long[valid_indices] + 1) * width * height,
+                                   source=vals_right[valid_indices])
+
+            voxel_grid = voxel_grid.view(num_bins, height, width)
+
+        return voxel_grid
+    
+    def norm(self, events):
+        with torch.no_grad():
+            nonzero_ev = (events != 0)
+            num_nonzeros = nonzero_ev.sum()
+            if num_nonzeros > 0: ## 실용 데이터가 있으면
+                mean = events.sum() / num_nonzeros
+                stddev = torch.sqrt((events ** 2).sum() / num_nonzeros - mean ** 2)
+                mask = nonzero_ev.float()
+                events = mask * (events - mean) / (stddev + 1e-8)
+
+        return events
+    
     def get_gt_info(self, sequence, frame_id):
         """Get the ground truth.
 

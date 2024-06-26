@@ -26,8 +26,8 @@ _depthmodel_= 'msnet3d'
 _nsweep_ = 10
 _query_tag_ = 'query_iou5203_pre7712_rec6153'
 
-input_type="rgb"
-norm_e=False
+input_type="event"
+norm_e=True
 
 model = dict(
    type='VoxFormer',
