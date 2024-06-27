@@ -31,24 +31,24 @@ norm_e=True
 
 model = dict(
    type='VoxFormer',
-   pretrained=dict(img='VoxFormer/ckpts/resnet50-19c8e357.pth'),
-   img_backbone=dict(
-       type='ResNet',
-       depth=50,
-       num_stages=4,
-       out_indices=(2,),
-       frozen_stages=1,
-       norm_cfg=dict(type='BN', requires_grad=False),
-       norm_eval=True,
-       style='pytorch'),
-   img_neck=dict(
-       type='FPN',
-       in_channels=[1024],
-       out_channels=_dim_,
-       start_level=0,
-       add_extra_convs='on_output',
-       num_outs=_num_levels_,
-       relu_before_extra_convs=True),
+    img_backbone=dict(
+        type='E2VIDRecurrent',
+        num_bins=3,
+        skip_type='sum',
+        num_encoders=4,
+        base_num_channels=32,
+        num_residual_blocks=2,
+        use_upsample_conv=False,
+        norm='BN',
+        recurrent_block_type='convlstm'),
+#    img_neck=dict(
+#        type='FPN',
+#        in_channels=[1024],
+#        out_channels=_dim_,
+#        start_level=0,
+#        add_extra_convs='on_output',
+#        num_outs=_num_levels_,
+#        relu_before_extra_convs=True),
    pts_bbox_head=dict(
        type='VoxFormerHead',
        bev_h=128,
@@ -147,7 +147,7 @@ file_client_args = dict(backend='disk')
 
 data = dict(
    samples_per_gpu=1,
-   workers_per_gpu=0,
+   workers_per_gpu=4,
    train=dict(
        type=dataset_type,
        split = "train",

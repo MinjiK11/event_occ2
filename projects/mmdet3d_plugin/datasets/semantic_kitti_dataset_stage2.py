@@ -47,16 +47,16 @@ class SemanticKittiDatasetStage2(Dataset):
         self.nsweep=str(nsweep)
         self.depthmodel = depthmodel
         self.eval_range = eval_range
-        # splits = {
-        #     "train": ["00", "01", "02", "03", "04", "05", "06", "07", "09", "10"],
-        #     "val": ["08"],
-        #     "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
-        # }
         splits = {
-            "train": ["04"],
-            "val": ["04"],
+            "train": ["00", "01", "02", "03", "04", "05", "06", "07", "09", "10"],
+            "val": ["08"],
             "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
         }
+        # splits = {
+        #     "train": ["04"],
+        #     "val": ["04"],
+        #     "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
+        # }
         
         self.split = split 
         self.sequences = splits[split]

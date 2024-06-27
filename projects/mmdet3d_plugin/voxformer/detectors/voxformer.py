@@ -22,6 +22,7 @@ from mmdet3d.core import bbox3d2result
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
 
+import torchsummary
 @DETECTORS.register_module()
 class VoxFormer(MVXTwoStageDetector):
     def __init__(self,
@@ -48,22 +49,42 @@ class VoxFormer(MVXTwoStageDetector):
                              img_backbone, pts_backbone, img_neck, pts_neck,
                              pts_bbox_head, img_roi_head, img_rpn_head,
                              train_cfg, test_cfg, pretrained)
+        self.stats=None
 
     def extract_img_feat(self, img, img_metas, len_queue=None):
         """Extract features of images."""
 
+        # torch.cuda.empty_cache()
+
+        # torchsummary.summary(self.img_backbone,(3,370,1220))
         B = img.size(0)
         if img is not None:
             if img.dim() == 5 and img.size(0) == 1:
                 B, N, C, H, W = img.size()
                 img = img.reshape(B * N, C, H, W)
+            
+            if img_metas[0]['input_type']=='rgb':
+                img_feats = self.img_backbone(img)
+            elif img_metas[0]['input_type']=='event':
+                # img_feats = self.img_backbone(img) # e2vid (w/o recurrent)
+                img_feats, self.stats = self.img_backbone(img,self.stats) 
+                # img_feats=img_feats[0].unsqueeze(dim=0) # e2vid (w/o recurrent)
+                img_feats=img_feats.unsqueeze(dim=0)
 
-            img_feats = self.img_backbone(img)
+                tmp=[]
+                for step in self.stats:
+                    sub_tmp=[]
+                    for item in step:
+                        sub_tmp.append(item.detach())
+                    tmp.append(sub_tmp)
+                self.stats=tmp
+
 
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:
             return None
+
         if self.with_img_neck:
             img_feats = self.img_neck(img_feats)
 
@@ -104,6 +125,7 @@ class VoxFormer(MVXTwoStageDetector):
         list[list[dict]]), with the outer list indicating test time
         augmentations.
         """
+
         if return_loss:
             return self.forward_train(**kwargs)
         else:
@@ -133,7 +155,7 @@ class VoxFormer(MVXTwoStageDetector):
         
         img_metas = [each[len_queue-1] for each in img_metas]
         img = img[:, -1, ...]
-        img_feats = self.extract_feat(img=img) 
+        img_feats = self.extract_feat(img=img, img_metas=img_metas) 
         losses = dict()
         losses_pts = self.forward_pts_train(img_feats, img_metas, target)
         losses.update(losses_pts)
@@ -163,7 +185,7 @@ class VoxFormer(MVXTwoStageDetector):
         
         img_metas = [each[len_queue-1] for each in img_metas]
         img = img[:, -1, ...]
-        img_feats = self.extract_feat(img=img) 
+        img_feats = self.extract_feat(img=img, img_metas=img_metas) 
         outs = self.pts_bbox_head(img_feats, img_metas, target)
         completion_results = self.pts_bbox_head.validation_step(outs, target, img_metas)
 

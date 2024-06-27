@@ -27,7 +27,7 @@ _nsweep_ = 10
 _query_tag_ = 'query_iou5203_pre7712_rec6153'
 
 input_type="rgb"
-norm_e=False
+norm_e=True
 
 model = dict(
    type='VoxFormer',
@@ -147,7 +147,7 @@ file_client_args = dict(backend='disk')
 
 data = dict(
    samples_per_gpu=1,
-   workers_per_gpu=0,
+   workers_per_gpu=4,
    train=dict(
        type=dataset_type,
        split = "train",
