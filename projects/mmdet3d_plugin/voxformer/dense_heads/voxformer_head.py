@@ -173,6 +173,8 @@ class VoxFormerHead(nn.Module):
             result['y_pred'] = y_pred
             result['y_true'] = y_true
 
+            self.save_flag=True
+            
             if self.save_flag:
                 self.save_pred(img_metas, y_pred)
 
@@ -226,29 +228,30 @@ class VoxFormerHead(nn.Module):
         15: 70  # "vegetation"         # 16: 71  # "trunk"      # 17: 72  # "terrain"       # 18: 80  # "pole"           # 19: 81  # "traffic-sign"
         """
 
-        y_pred[y_pred==10] = 44
-        y_pred[y_pred==11] = 48
-        y_pred[y_pred==12] = 49
-        y_pred[y_pred==13] = 50
-        y_pred[y_pred==14] = 51
-        y_pred[y_pred==15] = 70
-        y_pred[y_pred==16] = 71
-        y_pred[y_pred==17] = 72
-        y_pred[y_pred==18] = 80
-        y_pred[y_pred==19] = 81
-        y_pred[y_pred==1] = 10
-        y_pred[y_pred==2] = 11
-        y_pred[y_pred==3] = 15
-        y_pred[y_pred==4] = 18
-        y_pred[y_pred==5] = 20
-        y_pred[y_pred==6] = 30
-        y_pred[y_pred==7] = 31
-        y_pred[y_pred==8] = 32
-        y_pred[y_pred==9] = 40
+        y_pred_save=np.copy(y_pred)
+        y_pred_save[y_pred_save==10] = 44
+        y_pred_save[y_pred_save==11] = 48
+        y_pred_save[y_pred_save==12] = 49
+        y_pred_save[y_pred_save==13] = 50
+        y_pred_save[y_pred_save==14] = 51
+        y_pred_save[y_pred_save==15] = 70
+        y_pred_save[y_pred_save==16] = 71
+        y_pred_save[y_pred_save==17] = 72
+        y_pred_save[y_pred_save==18] = 80
+        y_pred_save[y_pred_save==19] = 81
+        y_pred_save[y_pred_save==1] = 10
+        y_pred_save[y_pred_save==2] = 11
+        y_pred_save[y_pred_save==3] = 15
+        y_pred_save[y_pred_save==4] = 18
+        y_pred_save[y_pred_save==5] = 20
+        y_pred_save[y_pred_save==6] = 30
+        y_pred_save[y_pred_save==7] = 31
+        y_pred_save[y_pred_save==8] = 32
+        y_pred_save[y_pred_save==9] = 40
 
         # save predictions
-        pred_folder = os.path.join("./voxformer", "sequences", img_metas[0]['sequence_id'], "predictions") 
+        pred_folder = os.path.join("result/voxformer-S_e2vidRecurrent", "sequences", img_metas[0]['sequence_id'], "predictions") 
         if not os.path.exists(pred_folder):
             os.makedirs(pred_folder)
-        y_pred_bin = y_pred.astype(np.uint16)
+        y_pred_bin = y_pred_save.astype(np.uint16)
         y_pred_bin.tofile(os.path.join(pred_folder, img_metas[0]['frame_id'] + ".label"))
