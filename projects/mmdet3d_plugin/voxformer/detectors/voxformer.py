@@ -15,12 +15,14 @@ import copy
 import torch
 import numpy as np
 import mmdet3d
+import torchinfo
 from tkinter.messagebox import NO
 from mmcv.runner import force_fp32, auto_fp16
 from mmdet.models import DETECTORS
 from mmdet3d.core import bbox3d2result
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
+from torchinfo import summary
 
 import torchsummary
 @DETECTORS.register_module()
@@ -56,6 +58,7 @@ class VoxFormer(MVXTwoStageDetector):
 
         # torch.cuda.empty_cache()
 
+        print("sequence:",img_metas[0]['sequence_id'],'frameid:',img_metas[0]['frame_id'])
         # torchsummary.summary(self.img_backbone,(3,370,1220))
         B = img.size(0)
         if img is not None:
@@ -66,18 +69,22 @@ class VoxFormer(MVXTwoStageDetector):
             if img_metas[0]['input_type']=='rgb':
                 img_feats = self.img_backbone(img)
             elif img_metas[0]['input_type']=='event':
-                # img_feats = self.img_backbone(img) # e2vid (w/o recurrent)
-                img_feats, self.stats = self.img_backbone(img,self.stats) 
-                # img_feats=img_feats[0].unsqueeze(dim=0) # e2vid (w/o recurrent)
-                img_feats=img_feats.unsqueeze(dim=0)
+                if img_metas[0]['stats_init']==True:
+                    self.stats=None
+                    print('self.stats:',self.stats)
+                img_feats = self.img_backbone(img) # e2vid (w/o recurrent)
+                # img_feats, self.stats = self.img_backbone(img,self.stats) # e2vid (w/ recurrent)
+                img_feats=img_feats[0].unsqueeze(dim=0) # e2vid (w/o recurrent)
+                # img_feats=img_feats.unsqueeze(dim=0) # e2vid (w/ recurrent)
 
-                tmp=[]
-                for step in self.stats:
-                    sub_tmp=[]
-                    for item in step:
-                        sub_tmp.append(item.detach())
-                    tmp.append(sub_tmp)
-                self.stats=tmp
+                # e2vid (w/ recurrent)
+                # tmp=[]
+                # for step in self.stats:
+                #     sub_tmp=[]
+                #     for item in step:
+                #         sub_tmp.append(item.detach())
+                #     tmp.append(sub_tmp)
+                # self.stats=tmp
 
 
             if isinstance(img_feats, dict):
@@ -111,6 +118,8 @@ class VoxFormer(MVXTwoStageDetector):
                           target):
         """Forward function'
         """
+        # print(type(img_feats),type(img_metas),type(target))
+        # torchinfo.summary(self.pts_bbox_head,input_data=[img_feats[0],img_metas[0],target])
         outs = self.pts_bbox_head(img_feats, img_metas, target)
         losses = self.pts_bbox_head.training_step(outs, target, img_metas)
         return losses

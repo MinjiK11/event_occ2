@@ -53,7 +53,7 @@ class SemanticKittiDatasetStage2(Dataset):
             "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
         }
         # splits = {
-        #     "train": ["04"],
+        #     "train": ["06"],
         #     "val": ["04"],
         #     "test": ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"],
         # }
@@ -91,6 +91,9 @@ class SemanticKittiDatasetStage2(Dataset):
         self.set_group_flag()
         self.input_type=input_type
         self.norm_e=norm_e
+
+        self.iter=0
+        self.stats_init=True
         
     def __getitem__(self, index):
         
@@ -187,7 +190,8 @@ class SemanticKittiDatasetStage2(Dataset):
                 self.data_root, "dataset", "sequences_" + self.depthmodel + "_sweep"+ self.nsweep, sequence, "queries", "*." + self.query_tag
             )
 
-            for proposal_path in glob.glob(glob_path):
+            flist=sorted(glob.glob(glob_path))
+            for proposal_path in flist:
 
                 self.scans.append(
                     {
@@ -238,6 +242,9 @@ class SemanticKittiDatasetStage2(Dataset):
                               cpu_only=False, stack=True)
         queue[-1]['img_metas'] = DC(metas_map, cpu_only=True)
         queue = queue[-1]
+
+        self.iter+=1
+
         return queue
 
     def get_data_info(self, index):
@@ -255,6 +262,14 @@ class SemanticKittiDatasetStage2(Dataset):
         proposal_path = scan["proposal_path"]
 
         sequence = scan["sequence"]
+
+        if index!=0:
+            prev_idx=index-1
+            prev_sequence=self.scans[prev_idx]['sequence']
+            if sequence!=prev_sequence:
+                self.iter=0
+                print('previous:',prev_sequence,'current:',sequence)
+
         filename = os.path.basename(proposal_path)
         frame_id = os.path.splitext(filename)[0]
 
@@ -350,7 +365,12 @@ class SemanticKittiDatasetStage2(Dataset):
             image_paths.append(rgb_path)
 
         proposal_bin = self.read_occupancy_SemKITTI(proposal_path)
-
+    
+        if self.iter==0:
+            self.stats_init=True
+        else:
+            self.stats_init=False
+        
         meta_dict = dict(
             sequence_id = sequence,
             frame_id = frame_id,
@@ -360,7 +380,8 @@ class SemanticKittiDatasetStage2(Dataset):
             lidar2cam=lidar2cam_rts,
             cam_intrinsic=cam_intrinsics,
             img_shape = [(self.img_H,self.img_W)],
-            input_type=self.input_type
+            input_type=self.input_type,
+            stats_init=self.stats_init
         )
 
         return meta_dict
@@ -388,7 +409,7 @@ class SemanticKittiDatasetStage2(Dataset):
         evs_stream=torch.from_numpy(evs_stream).float()
         evs_stream[:,0]=torch.from_numpy(self.fix_time(evs_stream[:,0].numpy()))
 
-        ev_ten = self.ev2grid(evs_stream, num_bins=3, width=width, height=height)
+        ev_ten = self.ev2grid(evs_stream, num_bins=5, width=width, height=height)
 
         events=ev_ten[:,:self.img_H,:self.img_W]
         
@@ -413,7 +434,7 @@ class SemanticKittiDatasetStage2(Dataset):
             evs_stream=torch.from_numpy(evs_stream).float()
             evs_stream[:,0]=torch.from_numpy(self.fix_time(evs_stream[:,0].numpy()))
 
-            ev_ten=self.ev2grid(evs_stream,num_bins=3,width=width,height=height)
+            ev_ten=self.ev2grid(evs_stream,num_bins=5,width=width,height=height)
 
             events=ev_ten[:,:self.img_H,:self.img_W]
 

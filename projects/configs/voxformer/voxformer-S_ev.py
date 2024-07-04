@@ -31,16 +31,17 @@ norm_e=True
 
 model = dict(
    type='VoxFormer',
-    img_backbone=dict(
-        type='E2VIDRecurrent',
-        num_bins=3,
-        skip_type='sum',
-        num_encoders=4,
-        base_num_channels=32,
-        num_residual_blocks=2,
-        use_upsample_conv=False,
-        norm='BN',
-        recurrent_block_type='convlstm'),
+   # pretrained=dict(img='VoxFormer/ckpts/E2VID_lightweight.pth.tar'),
+   img_backbone=dict(
+       type='E2VIDRecurrent',
+       num_bins=5,
+       skip_type='sum',
+       num_encoders=4,
+       base_num_channels=32,
+       num_residual_blocks=2,
+       use_upsample_conv=False,
+       norm='BN',
+       recurrent_block_type='convlstm'),
 #    img_neck=dict(
 #        type='FPN',
 #        in_channels=[1024],
@@ -148,6 +149,7 @@ file_client_args = dict(backend='disk')
 data = dict(
    samples_per_gpu=1,
    workers_per_gpu=4,
+   shuffle=True,
    train=dict(
        type=dataset_type,
        split = "train",
@@ -213,12 +215,12 @@ log_config = dict(
    interval=50,
    hooks=[
        dict(type='TextLoggerHook'),
-       dict(type='TensorboardLoggerHook')
-    #    dict(type='WandbLoggerHook',
-    #         init_kwargs={
-    #             'project':'VoxFormer',
-    #             'entity':'minji11'
-    #         })
+       # dict(type='TensorboardLoggerHook')
+       dict(type='WandbLoggerHook',
+            init_kwargs={
+                'project':'VoxFormer',
+                'entity':'minji11'
+            })
    ])
 
 checkpoint_config = None

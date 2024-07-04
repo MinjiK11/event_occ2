@@ -148,6 +148,7 @@ file_client_args = dict(backend='disk')
 data = dict(
    samples_per_gpu=1,
    workers_per_gpu=4,
+   shuffle=False,
    train=dict(
        type=dataset_type,
        split = "train",

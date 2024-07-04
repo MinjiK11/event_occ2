@@ -31,6 +31,7 @@ class EvalHook(BaseEvalHook):
             return
 
         from projects.mmdet3d_plugin.voxformer.apis.test import custom_single_gpu_test
+        self.dataloader.dataset.iter=0
         results = custom_single_gpu_test(runner.model, self.dataloader, show=False)
         runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
         key_score = self.evaluate(runner, results)
