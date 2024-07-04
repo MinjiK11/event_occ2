@@ -5,6 +5,7 @@ import torch
 from os.path import join
 import numpy as np
 
+from mmcv.runner import BaseModule
 from .submodel import ConvLSTM, ResidualBlock, ConvLayer, UpsampleConvLayer, TransposedConvLayer
 from .unet import UNet, UNetRecurrent
 from mmdet.models.builder import BACKBONES
@@ -47,8 +48,7 @@ from mmdet.models.builder import BACKBONES
 #         params = sum([np.prod(p.size()) for p in model_parameters])
 #         self.logger.info('Trainable parameters: {}'.format(params))
 #         self.logger.info(self)
-        
-class BaseE2VID(nn.Module):
+class BaseE2VID(BaseModule):
     def __init__(
         self,
         num_bins,
@@ -58,9 +58,10 @@ class BaseE2VID(nn.Module):
         num_residual_blocks,
         use_upsample_conv,
         norm,
-        recurrent_block_type
+        recurrent_block_type,
+        init_cfg=None
     ):
-        super().__init__()
+        super(BaseE2VID, self).__init__(init_cfg)
         self.num_bins = num_bins  # number of bins in the voxel grid event tensor
         self.skip_type=skip_type
         self.num_encoders=num_encoders
